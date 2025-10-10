@@ -1,0 +1,265 @@
+# Liberation Guardian Configuration
+core:
+  name: "Liberation Guardian Instance"
+  environment: "development" # development, staging, production
+  log_level: "info"
+  port: 9000
+  
+redis:
+  host: "localhost"
+  port: 6379
+  password: ""
+  db: 0
+
+ai_providers:
+  # Tier 0: FREE local processing (basic pattern matching)
+  local_agent:
+    provider: "local"
+    model: "sentence-transformers"  # FREE pattern matching
+    api_key_env: ""  # No API key needed
+    max_tokens: 500
+    temperature: 0.0
+    
+  # Tier 0.5: LOCAL AI with Ollama (100% private, no internet required)
+  # Uncomment the following to use local Ollama instead of cloud AI
+  # ollama_triage_agent:
+  #   provider: "ollama"
+  #   model: "qwen2.5:7b"  # Fast, good quality model
+  #   api_key_env: ""  # No API key needed for local
+  #   max_tokens: 2000
+  #   temperature: 0.1
+  #   local_config:
+  #     base_url: "http://ollama:11434"  # Docker compose service
+  #     health_check_interval: "30s"
+  #     startup_timeout: "5m"
+  #     context_size: 32768
+    
+  # Tier 1: FREE Gemini (primary workhorse - handles 80% of cases)
+  triage_agent:
+    provider: "google"
+    model: "gemini-2.0-flash"  # FREE and actually good!
+    api_key_env: "GOOGLE_API_KEY"  # Free Google AI Studio key
+    max_tokens: 2000
+    temperature: 0.1
+    
+  # Tier 2: FREE Gemini with more tokens (complex analysis)
+  analysis_agent:
+    provider: "google"
+    model: "gemini-2.0-flash"  # Same model, more tokens
+    api_key_env: "GOOGLE_API_KEY"
+    max_tokens: 4000
+    temperature: 0.15
+    
+  # Tier 3: Haiku backup (when Gemini rate-limited or down)
+  backup_agent:
+    provider: "anthropic"
+    model: "claude-3-5-haiku"  # Cheap backup
+    api_key_env: "ANTHROPIC_API_KEY"
+    max_tokens: 1000
+    temperature: 0.1
+    
+  # Tier 3: Moderate cost (only when free/cheap fail)
+  complex_agent:
+    provider: "anthropic"
+    model: "claude-3-5-haiku"  # Still using Haiku, NOT Sonnet
+    api_key_env: "ANTHROPIC_API_KEY"
+    max_tokens: 2000
+    temperature: 0.2
+    
+  # Tier 4: EXPENSIVE (absolute last resort)
+  expert_agent:
+    provider: "anthropic"
+    model: "claude-3-5-sonnet"  # Sonnet only for truly critical
+    api_key_env: "ANTHROPIC_API_KEY"
+    max_tokens: 4000
+    temperature: 0.2
+    
+  # Coding tasks (cheapest option)
+  coding_agent:
+    provider: "openai"
+    model: "gpt-4o-mini"  # Much cheaper than gpt-4-turbo
+    api_key_env: "OPENAI_API_KEY"
+    max_tokens: 2000
+    temperature: 0.1
+
+integrations:
+  observability:
+    sentry:
+      enabled: true
+      webhook_secret_env: "SENTRY_WEBHOOK_SECRET"
+      dsn_env: "SENTRY_DSN"
+      auto_acknowledge: true
+      
+    prometheus:
+      enabled: true
+      scrape_url: "http://prometheus:9090"
+      alert_webhook_port: 8081
+      
+    grafana:
+      enabled: true
+      webhook_secret_env: "GRAFANA_WEBHOOK_SECRET"
+      
+  source_control:
+    github:
+      enabled: true
+      token_env: "GITHUB_TOKEN"
+      webhook_secret_env: "GITHUB_WEBHOOK_SECRET"
+       auto_merge_enabled: true  # 🚀 AGENTIC: Enable automatic dependency PR merging
+      
+  notifications:
+    slack:
+      enabled: true
+      webhook_url_env: "SLACK_WEBHOOK_URL"
+      
+  # 🤖 DEPENDENCY AUTOMATION CONFIGURATION
+  dependencies:
+    trust_level: 2  # BALANCED (0=Paranoid, 1=Conservative, 2=Balanced, 3=Progressive, 4=Autonomous)
+    security_auto_approve: true
+    patch_auto_approve: true
+    minor_auto_approve: false
+    major_auto_approve: false
+    required_tests: true
+    min_test_coverage: 0.70
+    min_confidence: 0.80
+    excluded_packages: []
+    included_packages: []
+    ecosystems: ["npm", "pip", "go_modules", "cargo"]
+    custom_rules:
+      - name: "Critical Security Updates"
+        pattern: ".*"
+        update_type: "security"
+        action: "approve"
+        description: "Auto-approve all security updates"
+      - name: "Block Major React Updates"
+        pattern: "^react$"
+        update_type: "major"
+        action: "review"
+        description: "Require human review for major React updates"
+
+decision_rules:
+  auto_acknowledge:
+    patterns:
+      - "TypeError: Cannot read property.*of null"
+      - "Network timeout.*retry_count < 3"
+      - "Rate limit exceeded.*temporary"
+    
+    conditions:
+      frequency: "occasional" # first_time, occasional, frequent
+      user_impact: "single_user" # none, single_user, multiple_users
+      confidence_threshold: 0.8
+      
+  auto_fix:
+    patterns:
+      - "Missing environment variable"
+      - "Linting error.*fixable"
+      - "Test failure.*flaky test"
+      - "Merge conflict.*simple"
+    
+    conditions:
+      confidence_threshold: 0.9
+      max_fix_attempts: 3
+      require_tests: true
+      
+  escalate:
+    patterns:
+      - "Database connection failed"
+      - "Memory leak detected"
+      - "Security violation"
+      - "Data corruption"
+    
+    conditions:
+      always_escalate: true
+      notification_channels: ["email", "sms", "slack"]
+
+# GEMINI-FIRST cost savings strategy
+ai_escalation:
+  # Gemini does the heavy lifting (FREE), Haiku as backup (CHEAP)
+  escalation_strategy:
+    # Tier 0: FREE local pattern matching
+    tier_0:
+      agent: "local_agent"
+      confidence_threshold: 0.6
+      max_cost_per_request: 0.00  # FREE
+      
+    # Tier 1: FREE Gemini triage - primary workhorse
+    tier_1:
+      agent: "triage_agent"  # Gemini Flash
+      confidence_threshold: 0.75
+      max_cost_per_request: 0.00  # FREE (15 requests/minute)
+      escalate_on:
+        - local_insufficient: true    # Need more than pattern matching
+        - any_severity: true          # Gemini handles everything well
+      
+    # Tier 2: FREE Gemini analysis - complex cases
+    tier_2:
+      agent: "analysis_agent"  # Gemini Flash with more tokens
+      confidence_threshold: 0.8
+      max_cost_per_request: 0.00  # Still FREE
+      escalate_on:
+        - low_confidence: true       # Tier 1 confidence < 0.75
+        - complex_reasoning: true    # Multi-step analysis needed
+        - security_events: true      # Security requires deeper analysis
+      
+    # Tier 3: Haiku backup - when Gemini rate-limited
+    tier_3:
+      agent: "backup_agent"  # Haiku
+      confidence_threshold: 0.8
+      max_cost_per_request: 0.005  # Only ~$0.005 per request
+      escalate_on:
+        - gemini_rate_limited: true  # Hit Gemini's 15/min limit
+        - gemini_unavailable: true   # API down
+        - critical_urgency: true     # Need immediate response
+        
+    # Tier 3: Haiku with more tokens - complex but still cheap
+    tier_3:
+      agent: "complex_agent"
+      confidence_threshold: 0.85
+      max_cost_per_request: 0.01  # ~$0.01 per request
+      escalate_on:
+        - high_severity: true      # High/critical severity
+        - security_related: true   # Security events
+        - unknown_pattern: true    # No similar patterns
+        
+    # Tier 4: Sonnet (EXPENSIVE) - absolute last resort
+    tier_4:
+      agent: "expert_agent"
+      confidence_threshold: 0.9
+      max_cost_per_request: 0.15  # ~$0.15 per request  
+      escalate_on:
+        - all_cheap_failed: true   # Everything else failed
+        - data_loss_risk: true     # Data integrity threats
+        - business_critical: true  # Revenue-affecting outages
+        - compliance_violation: true # Regulatory issues
+        
+  # Gemini-optimized cost controls
+  cost_controls:
+    daily_budget: 5.00           # $5/day max (mostly for emergencies)
+    hourly_budget: 1.00          # $1/hour (should rarely hit this)
+    gemini_rate_limit: 15        # 15 requests/minute (Google's free limit)
+    gemini_daily_limit: 1000000  # 1M tokens/day (Google's free limit)
+    free_model_priority: true    # Gemini first, always
+    haiku_cooldown: 60           # 1 minute between paid calls
+    local_fallback: true         # Local processing when APIs unavailable
+    
+  # Rate limit handling
+  rate_limits:
+    gemini_backoff: 60           # Wait 1 minute when rate limited
+    retry_free_first: true       # Always retry free models before paid
+    queue_requests: true         # Queue requests when rate limited
+    
+  # Fallback when budget exceeded
+  budget_exceeded:
+    fallback_to: "rule_based"    # Use pattern matching only
+    notify_admin: true
+    reset_at_midnight: true
+
+learning:
+  knowledge_base:
+    retention_days: 365
+    pattern_confidence_threshold: 0.7
+    min_occurrences_for_pattern: 3
+    
+  feedback_loop:
+    enabled: true
+    human_feedback_weight: 2.0
+    outcome_tracking_enabled: true

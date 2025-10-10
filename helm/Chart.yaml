@@ -1,0 +1,41 @@
+apiVersion: v2
+name: liberation-guardian
+description: |
+  Liberation Guardian - Autonomous AI Operations Platform
+  
+  Provides intelligent event triage and automated responses for infrastructure
+  monitoring with cost-aware AI providers and Liberation philosophy principles.
+
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+
+keywords:
+  - ai
+  - operations
+  - monitoring
+  - automation
+  - observability
+  - incident-response
+  - liberation
+
+home: https://github.com/liberation/guardian
+sources:
+  - https://github.com/liberation/guardian
+
+maintainers:
+  - name: Liberation Team
+    email: team@liberation.dev
+    url: https://liberation.dev
+
+annotations:
+  category: Monitoring
+  licenses: Apache-2.0
+  
+dependencies:
+  - name: redis
+    version: "^18.0.0"
+    repository: "https://charts.bitnami.com/bitnami"
+    condition: redis.enabled
+    
+icon: https://raw.githubusercontent.com/liberation/guardian/main/assets/icon.png

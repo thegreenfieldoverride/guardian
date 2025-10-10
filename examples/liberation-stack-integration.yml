@@ -1,0 +1,137 @@
+# Integration Example: Adding Liberation Guardian to Liberation Stack
+# This shows how to add Liberation Guardian to your existing services
+
+version: '3.8'
+
+services:
+  # Your existing Liberation services
+  core-api:
+    build: ./services/core-api
+    ports:
+      - "3000:3000"
+    environment:
+      - DB_HOST=postgres
+      - AI_SERVICE_PORT=3001
+      - EVENT_BUS_PORT=3002
+      # NEW: Point to Liberation Guardian for ops monitoring
+      - LIBERATION_GUARDIAN_URL=http://liberation-guardian:9000
+    depends_on:
+      - postgres
+      - ai-integration
+      - event-bus
+      # NEW: Depend on Liberation Guardian
+      - liberation-guardian
+
+  ai-integration:
+    build: ./services/ai-integration
+    ports:
+      - "3001:3001"
+    environment:
+      - DEFAULT_ANTHROPIC_API_KEY=${DEFAULT_ANTHROPIC_API_KEY}
+      - EVENT_BUS_PORT=3002
+    depends_on:
+      - event-bus
+
+  event-bus:
+    build: ./services/event-bus
+    ports:
+      - "3002:3002"
+    environment:
+      - REDIS_HOST=redis
+      - MAX_CONCURRENT_TASKS=10
+    depends_on:
+      - redis
+
+  # NEW: Liberation Guardian Service
+  liberation-guardian:
+    build: ./services/liberation-guardian
+    ports:
+      - "9000:9000"  # Different port to avoid conflicts
+    environment:
+      # AI Configuration - reuse your existing keys
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - ANTHROPIC_API_KEY=${DEFAULT_ANTHROPIC_API_KEY}
+      
+      # Redis integration - use same Redis as event-bus
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=1  # Different DB to avoid conflicts
+      
+      # Application settings
+      - ENVIRONMENT=development
+      - LOG_LEVEL=info
+      - PORT=9000
+      
+      # Integration with your notification systems
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL:-}
+      
+    volumes:
+      - ./services/liberation-guardian/liberation-guardian.yml:/app/liberation-guardian.yml
+    depends_on:
+      - redis
+    restart: unless-stopped
+    
+    # Health checks
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Your existing infrastructure
+  postgres:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=collective_strategist
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  # NEW: Optional monitoring for your Liberation stack
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    depends_on:
+      - liberation-guardian
+
+  # NEW: Grafana for dashboards
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3030:3000"  # Different port to avoid conflicts
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=liberation
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    depends_on:
+      - prometheus
+
+volumes:
+  postgres_data:
+  redis_data:
+  grafana_data:
+
+networks:
+  default:
+    name: liberation-network

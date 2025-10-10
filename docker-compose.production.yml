@@ -1,0 +1,191 @@
+# Liberation Guardian - Production Docker Compose
+# Ready-to-deploy configuration for autonomous AI operations
+
+version: '3.8'
+
+services:
+  liberation-guardian:
+    image: liberation/guardian:latest
+    container_name: liberation-guardian
+    restart: unless-stopped
+    
+    ports:
+      - "9000:9000"
+      
+    environment:
+      # REQUIRED: AI Provider Keys
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      
+      # Optional: Backup AI providers  
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      
+      # Application Configuration
+      - ENVIRONMENT=production
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - PORT=9000
+      
+      # Trust Level Configuration
+      - TRUST_LEVEL=${TRUST_LEVEL:-cautious}
+      
+      # Redis Configuration
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - REDIS_DB=0
+      
+      # Security
+      - SENTRY_WEBHOOK_SECRET=${SENTRY_WEBHOOK_SECRET:-}
+      - GRAFANA_WEBHOOK_SECRET=${GRAFANA_WEBHOOK_SECRET:-}
+      - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET:-}
+      
+      # Notifications
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL:-}
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+      
+    volumes:
+      # Configuration
+      - ./config/liberation-guardian.yml:/app/liberation-guardian.yml:ro
+      
+      # Persistent data
+      - guardian_data:/app/data
+      - guardian_logs:/app/logs
+      
+      # Optional: Mount codebase for analysis (read-only)
+      - ${CODEBASE_PATH:-./}:/workspace:ro
+      
+    depends_on:
+      redis:
+        condition: service_healthy
+        
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+      
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+        reservations:
+          memory: 256M
+          cpus: '0.5'
+          
+    # Security
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+      
+    networks:
+      - liberation-network
+
+  # Redis for event queuing and knowledge base
+  redis:
+    image: redis:7-alpine
+    container_name: liberation-redis
+    restart: unless-stopped
+    
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    
+    volumes:
+      - redis_data:/data
+      
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+          
+    networks:
+      - liberation-network
+
+  # Optional: Prometheus for monitoring Liberation Guardian itself
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: liberation-prometheus
+    restart: unless-stopped
+    
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+      
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+      
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+      - '--storage.tsdb.retention.time=30d'
+      
+    depends_on:
+      - liberation-guardian
+      
+    networks:
+      - liberation-network
+      
+    profiles:
+      - monitoring
+
+  # Optional: Grafana for dashboards
+  grafana:
+    image: grafana/grafana:latest
+    container_name: liberation-grafana
+    restart: unless-stopped
+    
+    ports:
+      - "${GRAFANA_PORT:-3030}:3000"
+      
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-liberation}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_ANALYTICS_REPORTING_ENABLED=false
+      - GF_ANALYTICS_CHECK_FOR_UPDATES=false
+      
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+      
+    depends_on:
+      - prometheus
+      
+    networks:
+      - liberation-network
+      
+    profiles:
+      - monitoring
+
+networks:
+  liberation-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  guardian_data:
+    driver: local
+  guardian_logs:
+    driver: local
+  redis_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local

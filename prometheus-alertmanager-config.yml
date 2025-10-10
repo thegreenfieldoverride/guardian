@@ -1,0 +1,44 @@
+# Alertmanager configuration to send alerts to Liberation Guardian
+# Add this to your existing alertmanager.yml
+
+global:
+  # Your existing global config
+
+route:
+  # Your existing routes
+  routes:
+  # Add this route for Liberation Guardian
+  - match:
+      service: liberation-test  # or whatever you want to filter
+    receiver: liberation-guardian
+    continue: true  # Also send to other receivers
+
+receivers:
+# Add this receiver to your existing receivers
+- name: 'liberation-guardian'
+  webhook_configs:
+  - url: 'http://localhost:9000/webhook/prometheus'
+    send_resolved: true
+    http_config:
+      timeout: 10s
+    title: 'Prometheus Alert: {{ .GroupLabels.alertname }}'
+    text: |
+      {{ range .Alerts }}
+      Alert: {{ .Annotations.summary }}
+      Description: {{ .Annotations.description }}
+      Labels: {{ range .Labels.SortedPairs }}{{ .Name }}={{ .Value }} {{ end }}
+      {{ end }}
+
+# Example test alert rule (add to your prometheus rules)
+groups:
+- name: liberation_guardian_test
+  rules:
+  - alert: LiberationGuardianTest
+    expr: up{job="prometheus"} == 1  # Always firing for testing
+    for: 0s
+    labels:
+      severity: warning
+      service: liberation-test
+    annotations:
+      summary: "Liberation Guardian test alert"
+      description: "This is a test alert to verify Liberation Guardian integration"

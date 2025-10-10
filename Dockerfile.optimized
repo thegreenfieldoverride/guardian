@@ -1,0 +1,91 @@
+# Liberation Guardian - Optimized Multi-Architecture Dockerfile
+# Builds a minimal, secure, fast container for autonomous AI operations
+
+# Build stage
+FROM --platform=$BUILDPLATFORM golang:1.21-alpine AS builder
+
+# Build arguments for cross-compilation
+ARG TARGETPLATFORM
+ARG BUILDPLATFORM  
+ARG TARGETOS
+ARG TARGETARCH
+
+# Add build info
+ARG VERSION=dev
+ARG BUILD_TIME
+ARG GIT_COMMIT
+
+WORKDIR /app
+
+# Install build dependencies
+RUN apk add --no-cache git
+
+# Copy dependency files first for better caching
+COPY go.mod go.sum ./
+RUN go mod download && go mod verify
+
+# Copy source code
+COPY . .
+
+# Build the binary with optimization and build info
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
+    go build \
+    -a \
+    -installsuffix cgo \
+    -ldflags="-w -s -X main.Version=$VERSION -X main.BuildTime=$BUILD_TIME -X main.GitCommit=$GIT_COMMIT" \
+    -o liberation-guardian \
+    ./cmd/main.go
+
+# Verify the binary works
+RUN ./liberation-guardian --version || echo "Version check not implemented yet"
+
+# Runtime stage  
+FROM alpine:latest
+
+# Add runtime dependencies
+RUN apk --no-cache add \
+    ca-certificates \
+    tzdata \
+    wget \
+    curl \
+    && rm -rf /var/cache/apk/*
+
+# Create non-root user for security
+RUN addgroup -g 1001 liberation && \
+    adduser -D -s /bin/sh -u 1001 -G liberation liberation
+
+WORKDIR /app
+
+# Copy binary from builder
+COPY --from=builder /app/liberation-guardian .
+
+# Copy configuration files
+COPY liberation-guardian.yml .
+COPY .env.example .env.example
+
+# Create directories for data
+RUN mkdir -p logs data config && \
+    chown -R liberation:liberation /app
+
+# Switch to non-root user
+USER liberation
+
+# Expose port
+EXPOSE 9000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:9000/health || exit 1
+
+# Labels for metadata
+LABEL org.opencontainers.image.title="Liberation Guardian" \
+      org.opencontainers.image.description="Autonomous AI Operations Platform - Free your developers from 2am pages" \
+      org.opencontainers.image.vendor="Liberation Technologies" \
+      org.opencontainers.image.licenses="Apache-2.0" \
+      org.opencontainers.image.url="https://github.com/liberation/guardian" \
+      org.opencontainers.image.documentation="https://github.com/liberation/guardian/blob/main/README.md" \
+      org.opencontainers.image.source="https://github.com/liberation/guardian" \
+      org.opencontainers.image.version="$VERSION"
+
+# Default command
+CMD ["./liberation-guardian"]

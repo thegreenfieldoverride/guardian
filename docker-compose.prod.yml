@@ -1,0 +1,129 @@
+# Production Docker Compose for Liberation Guardian
+version: '3.8'
+
+services:
+  liberation-guardian:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: liberation/guardian:latest
+    container_name: liberation-guardian
+    ports:
+      - "9000:9000"
+    environment:
+      # Required: AI Provider Keys
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      
+      # Optional: Backup AI providers (for cost optimization)
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      
+      # Redis configuration
+      - REDIS_HOST=${REDIS_HOST:-redis}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - REDIS_DB=${REDIS_DB:-0}
+      
+      # Application settings
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - PORT=9000
+      
+      # Webhook security (optional)
+      - SENTRY_WEBHOOK_SECRET=${SENTRY_WEBHOOK_SECRET:-}
+      - GRAFANA_WEBHOOK_SECRET=${GRAFANA_WEBHOOK_SECRET:-}
+      - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET:-}
+      
+      # Notification channels (optional)
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL:-}
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+      
+    volumes:
+      # Configuration file
+      - ./liberation-guardian.yml:/app/liberation-guardian.yml:ro
+      
+      # Optional: Custom configurations
+      - ./config/production.yml:/app/config/production.yml:ro
+      
+    depends_on:
+      - redis
+      
+    restart: unless-stopped
+    
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+      
+    networks:
+      - liberation-network
+      
+    # Resource limits for cost control
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
+          cpus: '0.25'
+    
+    # Security
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=100m
+
+  # Redis for event queuing and knowledge base
+  redis:
+    image: redis:7-alpine
+    container_name: liberation-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+      - ./config/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    command: redis-server /usr/local/etc/redis/redis.conf
+    restart: unless-stopped
+    networks:
+      - liberation-network
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.25'
+
+  # Optional: Prometheus for monitoring Liberation Guardian itself
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: liberation-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+    networks:
+      - liberation-network
+
+networks:
+  liberation-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  redis-data:
+    driver: local
+  prometheus-data:
+    driver: local

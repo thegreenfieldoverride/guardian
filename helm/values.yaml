@@ -1,0 +1,207 @@
+# Default values for Liberation Guardian
+# This is a YAML-formatted file.
+
+# Application configuration
+app:
+  name: liberation-guardian
+  version: "1.0.0"
+  
+# Container image configuration  
+image:
+  repository: liberation/guardian
+  tag: "latest"
+  pullPolicy: IfNotPresent
+  pullSecrets: []
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 9000
+  targetPort: 9000
+  annotations: {}
+
+# Ingress configuration
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: liberation-guardian.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+  #  - secretName: liberation-guardian-tls
+  #    hosts:
+  #      - liberation-guardian.local
+
+# AI Provider Configuration
+ai:
+  # Google Gemini (FREE - Primary)
+  google:
+    enabled: true
+    # API key should be provided via secret
+    apiKeySecret: "ai-secrets"
+    apiKeyKey: "google-api-key"
+    
+  # Anthropic Claude (Backup - Cheap)
+  anthropic:
+    enabled: false
+    apiKeySecret: "ai-secrets" 
+    apiKeyKey: "anthropic-api-key"
+    
+  # OpenAI (Optional - Coding tasks)
+  openai:
+    enabled: false
+    apiKeySecret: "ai-secrets"
+    apiKeyKey: "openai-api-key"
+
+# Cost controls
+costControl:
+  dailyBudget: 5.00
+  hourlyBudget: 1.00
+  enableBudgetLimits: true
+  freeModelPriority: true
+
+# Redis configuration (for event queuing and knowledge base)
+redis:
+  enabled: true
+  auth:
+    enabled: false
+  architecture: standalone
+  master:
+    persistence:
+      enabled: true
+      size: 1Gi
+  # External Redis (if not using bundled)
+  external:
+    enabled: false
+    host: ""
+    port: 6379
+    password: ""
+    database: 0
+
+# Webhook security
+webhooks:
+  security:
+    # Webhook signature verification
+    sentry:
+      secretName: "webhook-secrets"
+      secretKey: "sentry-secret"
+    grafana:
+      secretName: "webhook-secrets" 
+      secretKey: "grafana-secret"
+    github:
+      secretName: "webhook-secrets"
+      secretKey: "github-secret"
+
+# Notification channels  
+notifications:
+  slack:
+    enabled: false
+    webhookUrlSecret: "notification-secrets"
+    webhookUrlKey: "slack-webhook-url"
+  github:
+    enabled: false
+    tokenSecret: "notification-secrets"
+    tokenKey: "github-token"
+
+# Pod configuration
+replicaCount: 1
+
+resources:
+  limits:
+    memory: 256Mi
+    cpu: 500m
+  requests:
+    memory: 128Mi
+    cpu: 250m
+
+# Autoscaling
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+# Health checks
+healthcheck:
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: 9000
+    initialDelaySeconds: 30
+    periodSeconds: 30
+    timeoutSeconds: 10
+    failureThreshold: 3
+  
+  readinessProbe:
+    httpGet:
+      path: /ready
+      port: 9000
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+# Pod Security Context
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+  runAsGroup: 1001
+  fsGroup: 1001
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+    - ALL
+
+# Node selection
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Additional environment variables
+extraEnv: []
+# - name: CUSTOM_VAR
+#   value: "custom-value"
+
+# Additional volumes
+extraVolumes: []
+extraVolumeMounts: []
+
+# ServiceAccount
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# RBAC
+rbac:
+  create: true
+
+# Monitoring
+monitoring:
+  enabled: false
+  serviceMonitor:
+    enabled: false
+    namespace: ""
+    labels: {}
+    interval: 30s
+    scrapeTimeout: 10s
+
+# Configuration files
+config:
+  # Custom liberation-guardian.yml configuration
+  custom: {}
+  
+  # Log level
+  logLevel: "info"
+  
+  # Environment (development, staging, production)
+  environment: "production"

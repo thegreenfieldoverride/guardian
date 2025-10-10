@@ -1,0 +1,196 @@
+# Liberation Guardian with Local AI Models
+# Complete privacy - zero external API calls
+
+version: '3.8'
+
+services:
+  # Ollama - Local AI Model Server
+  ollama:
+    image: ollama/ollama:latest
+    container_name: liberation-ollama
+    restart: unless-stopped
+    
+    # GPU support (uncomment if you have NVIDIA GPU)
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+    
+    ports:
+      - "11434:11434"
+      
+    volumes:
+      - ollama_models:/root/.ollama
+      
+    environment:
+      - OLLAMA_MODELS=/root/.ollama
+      - OLLAMA_HOST=0.0.0.0
+      
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 2m
+      
+    # Resource limits for local model
+    deploy:
+      resources:
+        limits:
+          memory: 12G
+          cpus: '6.0'
+        reservations:
+          memory: 8G
+          cpus: '4.0'
+          
+    networks:
+      - liberation-network
+
+  # Liberation Guardian with Local AI
+  liberation-guardian:
+    build: 
+      context: .
+      dockerfile: Dockerfile.optimized
+    container_name: liberation-guardian-local
+    restart: unless-stopped
+    
+    ports:
+      - "9000:9000"
+      
+    environment:
+      # Local AI Configuration
+      - AI_MODE=local
+      - LOCAL_AI_PROVIDER=ollama
+      - LOCAL_AI_BASE_URL=http://ollama:11434
+      - LOCAL_AI_MODEL=${LOCAL_MODEL:-qwen2.5:7b}
+      
+      # No external API keys needed!
+      # - GOOGLE_API_KEY=  # Not needed for local mode
+      
+      # Application Configuration
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - PORT=9000
+      - TRUST_LEVEL=${TRUST_LEVEL:-cautious}
+      
+      # Redis Configuration
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+      
+      # Codebase Analysis (local only)
+      - CODEBASE_ANALYSIS_ENABLED=true
+      - CODEBASE_PATH=/workspace
+      
+    volumes:
+      # Configuration
+      - ./liberation-guardian.yml:/app/liberation-guardian.yml:ro
+      
+      # Persistent data
+      - guardian_data:/app/data
+      - guardian_logs:/app/logs
+      
+      # Mount codebase for analysis (read-only)
+      - ${CODEBASE_PATH:-./}:/workspace:ro
+      
+    depends_on:
+      ollama:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+        
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 2m  # Longer startup time for model loading
+      
+    # Resource allocation
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '2.0'
+        reservations:
+          memory: 512M
+          cpus: '1.0'
+          
+    networks:
+      - liberation-network
+
+  # Redis for event queuing and knowledge base
+  redis:
+    image: redis:7-alpine
+    container_name: liberation-redis-local
+    restart: unless-stopped
+    
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    
+    volumes:
+      - redis_data:/data
+      
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+          
+    networks:
+      - liberation-network
+
+  # Model Manager - Helper service to download/manage models
+  model-manager:
+    image: ollama/ollama:latest
+    container_name: liberation-model-manager
+    
+    volumes:
+      - ollama_models:/root/.ollama
+      - ./scripts:/scripts:ro
+      
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+      
+    depends_on:
+      ollama:
+        condition: service_healthy
+        
+    command: >
+      sh -c "
+        echo 'Downloading recommended models for Liberation Guardian...'
+        ollama pull ${LOCAL_MODEL:-qwen2.5:7b}
+        echo 'Models ready! Liberation Guardian can now run completely offline.'
+        exit 0
+      "
+      
+    networks:
+      - liberation-network
+      
+    profiles:
+      - setup
+
+networks:
+  liberation-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16
+
+volumes:
+  ollama_models:
+    driver: local
+  guardian_data:
+    driver: local
+  guardian_logs:
+    driver: local
+  redis_data:
+    driver: local
