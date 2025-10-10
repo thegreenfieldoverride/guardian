@@ -1,6 +1,6 @@
 # 📚 Liberation Guardian Documentation
 
-**Complete documentation for the world's most advanced autonomous AI operations platform**
+**Complete documentation for Liberation Guardian - autonomous AI operations with 300x cost reduction vs enterprise solutions**
 
 ## 🚀 **Getting Started**
 

@@ -1,6 +1,6 @@
 # 🔌 Liberation Guardian API Documentation
 
-**Complete API reference for Liberation Guardian's REST endpoints, webhooks, and integrations**
+**Complete API reference for Liberation Guardian - autonomous AI operations platform that costs $25/month instead of enterprise $5000/month solutions**
 
 ## 📋 **Table of Contents**
 
