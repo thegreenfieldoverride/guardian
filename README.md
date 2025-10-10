@@ -2,7 +2,7 @@
 
 **Revolutionary autonomous AI operations platform that delivers enterprise-grade dependency management for $25/month instead of $5000/month**
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: Liberation](https://img.shields.io/badge/License-Liberation-orange.svg)](https://github.com/liberationlicense/license/blob/v1.0.0/LICENSE.md)
 [![Go Version](https://img.shields.io/badge/Go-1.21+-blue.svg)](https://golang.org)
 [![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg)](https://docker.com)
 [![AI Powered](https://img.shields.io/badge/AI-Powered-purple.svg)](https://ai.google.dev)
@@ -241,7 +241,7 @@ Liberation Guardian embodies four core principles:
 
 ## 📜 **License**
 
-MIT License - see [LICENSE](LICENSE) for details.
+Liberation License - see [Liberation License v1.0.0](https://github.com/liberationlicense/license/blob/v1.0.0/LICENSE.md) for details.
 
 ## 🙏 **Acknowledgments**
 
