@@ -6,7 +6,7 @@ core:
   port: 9000
   
 redis:
-  host: "localhost"
+  host: "host.docker.internal"
   port: 6379
   password: ""
   db: 0
