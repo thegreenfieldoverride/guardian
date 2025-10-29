@@ -104,7 +104,7 @@ integrations:
       enabled: true
       token_env: "GITHUB_TOKEN"
       webhook_secret_env: "GITHUB_WEBHOOK_SECRET"
-       auto_merge_enabled: true  # 🚀 AGENTIC: Enable automatic dependency PR merging
+      auto_merge_enabled: true  # 🚀 AGENTIC: Enable automatic dependency PR merging
       
   notifications:
     slack:
