@@ -124,6 +124,28 @@ integrations:
     excluded_packages: []
     included_packages: []
     ecosystems: ["npm", "pip", "go_modules", "cargo"]
+
+    # Supported dependency bots
+    supported_bots:
+      - "dependabot"
+      - "snyk"
+
+    # Fast-path for simple dependency updates (skips expensive AI analysis)
+    simple_pr_fast_path:
+      enabled: true
+      patch_only: true              # Only patch updates (1.2.3 → 1.2.4)
+      popular_packages_only: true   # Only well-known packages
+      min_weekly_downloads: 100000  # Minimum 100k downloads/week
+      max_diff_lines: 50            # Max lines changed in lock files
+      block_security_fixes: true    # Security fixes need AI analysis
+
+    # Snyk-specific configuration
+    snyk:
+      enabled: true
+      auto_approve_patches: true     # Auto-approve Snyk patch PRs
+      trust_snyk_priority: true      # Trust Snyk's severity assessment
+
+    # Custom rules for specific packages
     custom_rules:
       - name: "Critical Security Updates"
         pattern: ".*"
@@ -142,34 +164,83 @@ decision_rules:
       - "TypeError: Cannot read property.*of null"
       - "Network timeout.*retry_count < 3"
       - "Rate limit exceeded.*temporary"
-    
+
     conditions:
       frequency: "occasional" # first_time, occasional, frequent
       user_impact: "single_user" # none, single_user, multiple_users
       confidence_threshold: 0.8
-      
+
   auto_fix:
     patterns:
       - "Missing environment variable"
       - "Linting error.*fixable"
       - "Test failure.*flaky test"
       - "Merge conflict.*simple"
-    
+
     conditions:
       confidence_threshold: 0.9
       max_fix_attempts: 3
       require_tests: true
-      
+
   escalate:
     patterns:
       - "Database connection failed"
       - "Memory leak detected"
       - "Security violation"
       - "Data corruption"
-    
+
     conditions:
       always_escalate: true
       notification_channels: ["email", "sms", "slack"]
+
+# 🛠️ AUTO-FIX EXECUTION CONFIGURATION
+auto_fix:
+  enabled: false  # Disabled by default for safety - enable when ready
+  workspace_base_dir: "/tmp/liberation-guardian-workspaces"
+
+  # Safety controls for file operations
+  safety:
+    allowed_file_paths:
+      - "src/"
+      - "internal/"
+      - "pkg/"
+      - "config/"
+      - "lib/"
+      - "app/"
+    blocked_file_paths:
+      - ".env"
+      - ".secret"
+      - ".git/"
+      - "node_modules/"
+      - "vendor/"
+      - "credentials"
+      - "private_key"
+    allowed_commands:
+      - "npm install"
+      - "npm test"
+      - "docker restart"
+      - "systemctl restart"
+      - "go test"
+      - "pytest"
+      - "cargo test"
+
+  # Execution settings
+  execution:
+    max_execution_time: "10m"
+    max_file_size: 1048576  # 1MB
+    require_rollback_plan: true
+    auto_rollback_on_failure: true
+
+  # Validation settings
+  validation:
+    require_tests: true
+    run_health_checks: true
+
+  # Git settings for PR-based fixes
+  git:
+    auto_create_branch: true
+    branch_prefix: "autofix/"
+    commit_message_prefix: "[AUTO-FIX]"
 
 # GEMINI-FIRST cost savings strategy
 ai_escalation:
