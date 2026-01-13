@@ -1,7 +1,6 @@
 package autofix
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"

@@ -1,6 +1,8 @@
 package dependencies
 
 import (
+	"crypto/sha256"
+	"fmt"
 	"regexp"
 	"strings"
 
@@ -131,29 +133,29 @@ func (sp *SnykParser) parseVulnerabilitiesFromBody(body string, update *types.De
 }
 
 // determineSeverity determines the severity based on PR body content
-func (sp *SnykParser) determineSeverity(body string) types.Severity {
+func (sp *SnykParser) determineSeverity(body string) types.DependencySeverity {
 	bodyLower := strings.ToLower(body)
 
 	// Check for severity keywords
 	if strings.Contains(bodyLower, "critical") {
-		return types.SeverityCritical
+		return types.DependencySeverityCritical
 	}
 	if strings.Contains(bodyLower, "high severity") {
-		return types.SeverityHigh
+		return types.DependencySeverityHigh
 	}
-	if strings.Contains(bodyLower, "medium severity") {
-		return types.SeverityMedium
+	if strings.Contains(bodyLower, "moderate") || strings.Contains(bodyLower, "medium severity") {
+		return types.DependencySeverityModerate
 	}
 	if strings.Contains(bodyLower, "low severity") {
-		return types.SeverityLow
+		return types.DependencySeverityLow
 	}
 
 	// Check for CVE presence (security fix)
 	if strings.Contains(bodyLower, "cve-") || strings.Contains(bodyLower, "security") {
-		return types.SeverityHigh // Default to high for security fixes
+		return types.DependencySeverityHigh // Default to high for security fixes
 	}
 
-	return types.SeverityMedium // Default
+	return types.DependencySeverityModerate // Default
 }
 
 // IsSnykSecurityFix determines if this is a security-related fix
@@ -176,4 +178,26 @@ func (sp *SnykParser) IsSnykSecurityFix(prTitle, prBody string) bool {
 	}
 
 	return false
+}
+
+// generateUpdateID generates a unique ID for a dependency update based on PR title
+func generateUpdateID(prTitle string) string {
+	// Create a hash of the PR title for a unique ID
+	hash := sha256.Sum256([]byte(prTitle))
+	return fmt.Sprintf("snyk-%x", hash[:8])
+}
+
+// determineUpdateType determines the update type based on version comparison
+func determineUpdateType(current, new string) types.DependencyUpdateType {
+	// Simple semantic version parsing
+	currentParts := strings.Split(strings.TrimPrefix(current, "v"), ".")
+	newParts := strings.Split(strings.TrimPrefix(new, "v"), ".")
+
+	if len(currentParts) >= 1 && len(newParts) >= 1 && currentParts[0] != newParts[0] {
+		return types.UpdateTypeMajor
+	}
+	if len(currentParts) >= 2 && len(newParts) >= 2 && currentParts[1] != newParts[1] {
+		return types.UpdateTypeMinor
+	}
+	return types.UpdateTypePatch
 }

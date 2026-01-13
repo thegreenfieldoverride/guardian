@@ -62,16 +62,6 @@ const (
 	DependencySeverityCritical DependencySeverity = "critical"
 )
 
-// Severity is an alias for backwards compatibility with event severity
-type Severity = string
-
-const (
-	SeverityLow      Severity = "low"
-	SeverityMedium   Severity = "medium"
-	SeverityHigh     Severity = "high"
-	SeverityCritical Severity = "critical"
-)
-
 // DiffStats represents the diff statistics for a PR
 type DiffStats struct {
 	Additions int `json:"additions"`
@@ -144,9 +134,9 @@ type DependencyConfig struct {
 	IncludedPackages    []string              `yaml:"included_packages"`
 	Ecosystems          []DependencyEcosystem `yaml:"ecosystems"`
 	CustomRules         []DependencyRule      `yaml:"custom_rules"`
-	SupportedBots       []string              `yaml:"supported_bots"`        // "dependabot", "snyk"
-	SimplePRFastPath    SimplePRFastPath      `yaml:"simple_pr_fast_path"`   // Fast-path configuration
-	Snyk                SnykConfig            `yaml:"snyk"`                  // Snyk-specific config
+	SupportedBots       []string              `yaml:"supported_bots"`      // "dependabot", "snyk"
+	SimplePRFastPath    SimplePRFastPath      `yaml:"simple_pr_fast_path"` // Fast-path configuration
+	Snyk                SnykConfig            `yaml:"snyk"`                // Snyk-specific config
 }
 
 // SimplePRFastPath configures the fast-path for simple dependency PRs

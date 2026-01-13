@@ -72,14 +72,14 @@ type RollbackData struct {
 
 // ExecutionResult is the final result of fix execution
 type ExecutionResult struct {
-	Success         bool
-	CompletedSteps  int
-	TotalSteps      int
-	StepResults     []StepResult
+	Success          bool
+	CompletedSteps   int
+	TotalSteps       int
+	StepResults      []StepResult
 	RollbackRequired bool
-	RollbackSuccess bool
-	Duration        time.Duration
-	Error           error
+	RollbackSuccess  bool
+	Duration         time.Duration
+	Error            error
 }
 
 // HandlerRegistry manages action handlers

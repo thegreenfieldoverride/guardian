@@ -10,9 +10,9 @@ import (
 
 // SimplePRDetector determines if a dependency PR is simple enough to skip AI analysis
 type SimplePRDetector struct {
-	logger           *logrus.Logger
-	popularPackages  map[string]bool
-	config           *SimplePRFastPathConfig
+	logger          *logrus.Logger
+	popularPackages map[string]bool
+	config          *SimplePRFastPathConfig
 }
 
 // SimplePRFastPathConfig configures the fast-path logic

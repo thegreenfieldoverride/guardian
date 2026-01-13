@@ -560,7 +560,7 @@ func loadDependencyConfig(cfg *config.Config) *types.DependencyConfig {
 			types.EcosystemGo,
 			types.EcosystemRust,
 		},
-		CustomRules: []types.DependencyRule{},
+		CustomRules:   []types.DependencyRule{},
 		SupportedBots: []string{"dependabot", "snyk"},
 		SimplePRFastPath: types.SimplePRFastPath{
 			Enabled:             true,
