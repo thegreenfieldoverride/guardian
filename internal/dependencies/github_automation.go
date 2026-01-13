@@ -173,12 +173,8 @@ func (ga *GitHubAutomation) determineEcosystem(repoName, packageName string) typ
 	if strings.Contains(packageName, "/") && !strings.Contains(packageName, "@") {
 		return types.EcosystemGo
 	}
-	// nolint:gosimple // This is just checking prefix, not manipulating the string
-	if strings.HasPrefix(packageName, "@") {
-		return types.EcosystemNPM
-	}
 
-	// Default to npm (most common)
+	// Default to npm (most common, includes scoped packages like @foo/bar)
 	return types.EcosystemNPM
 }
 
@@ -353,7 +349,7 @@ func (ga *GitHubAutomation) checkCIStatus(ctx context.Context, webhook *types.Gi
 	if err != nil {
 		return "", fmt.Errorf("failed to make request: %w", err)
 	}
-	defer resp.Body.Close() // nolint:errcheck // Error from Close in defer is not actionable
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -407,7 +403,7 @@ func (ga *GitHubAutomation) checkGitHubActionsStatus(ctx context.Context, webhoo
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close() // nolint:errcheck // Error from Close in defer is not actionable
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("status code: %d", resp.StatusCode)
@@ -490,7 +486,7 @@ func (ga *GitHubAutomation) makeGitHubAPICall(ctx context.Context, method, url s
 	if err != nil {
 		return fmt.Errorf("failed to make API call: %w", err)
 	}
-	defer resp.Body.Close() // nolint:errcheck // Error from Close in defer is not actionable
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		respBody, _ := io.ReadAll(resp.Body)
