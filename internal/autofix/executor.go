@@ -97,7 +97,11 @@ func (e *AutoFixExecutor) ExecuteFixPlan(ctx context.Context, event *types.Liber
 				Duration:   time.Since(startTime),
 			}, err
 		}
-		defer e.workspaceManager.Cleanup(workspace)
+		defer func() {
+			if cleanupErr := e.workspaceManager.Cleanup(workspace); cleanupErr != nil {
+				e.logger.Errorf("Failed to cleanup workspace: %v", cleanupErr)
+			}
+		}()
 		execCtx.WorkingDirectory = workspace.Path
 	}
 

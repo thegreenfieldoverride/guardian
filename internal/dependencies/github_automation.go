@@ -246,7 +246,9 @@ func (ga *GitHubAutomation) executeAction(ctx context.Context, webhook *types.Gi
 			result.Reasoning += fmt.Sprintf(" (Merge failed: %v)", err)
 			// Fall back to approval
 			result.Action = types.ActionApprove
-			ga.approvePR(ctx, webhook)
+			if approveErr := ga.approvePR(ctx, webhook); approveErr != nil {
+				ga.logger.Errorf("Failed to approve PR after merge failure: %v", approveErr)
+			}
 		}
 
 	case types.ActionComment:
@@ -309,7 +311,9 @@ func (ga *GitHubAutomation) mergePR(ctx context.Context, webhook *types.GitHubDe
 			"but CI checks are not yet complete (status: `%s`).\n\n"+
 			"✅ Once all CI checks pass, this PR can be safely merged.\n\n"+
 			"🔒 **Safety**: Auto-merge only happens when all tests pass.", ciStatus)
-		ga.commentOnPR(ctx, webhook, comment)
+		if commentErr := ga.commentOnPR(ctx, webhook, comment); commentErr != nil {
+			ga.logger.Errorf("Failed to comment on PR about CI status: %v", commentErr)
+		}
 
 		return fmt.Errorf("CI checks not passing (status: %s), cannot auto-merge", ciStatus)
 	}
