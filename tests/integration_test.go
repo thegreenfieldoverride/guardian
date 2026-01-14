@@ -161,9 +161,9 @@ func TestFullSystem(t *testing.T) {
 
 		for _, test := range tests {
 			req, err := http.NewRequest("POST", test.endpoint, bytes.NewBuffer([]byte(test.payload)))
-		if err != nil {
-			t.Fatalf("Failed to create request: %v", err)
-		}
+			if err != nil {
+				t.Fatalf("Failed to create request: %v", err)
+			}
 			for k, v := range test.headers {
 				req.Header.Set(k, v)
 			}
