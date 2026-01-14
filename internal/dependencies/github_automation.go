@@ -352,7 +352,10 @@ func (ga *GitHubAutomation) checkCIStatus(ctx context.Context, webhook *types.Gi
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return "", fmt.Errorf("GitHub API returned status %d (failed to read response body: %v)", resp.StatusCode, err)
+		}
 		return "", fmt.Errorf("GitHub API returned status %d: %s", resp.StatusCode, string(body))
 	}
 
@@ -489,7 +492,10 @@ func (ga *GitHubAutomation) makeGitHubAPICall(ctx context.Context, method, url s
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		respBody, _ := io.ReadAll(resp.Body)
+		respBody, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return fmt.Errorf("GitHub API error (status %d, failed to read response: %v)", resp.StatusCode, err)
+		}
 		return fmt.Errorf("GitHub API error (status %d): %s", resp.StatusCode, string(respBody))
 	}
 

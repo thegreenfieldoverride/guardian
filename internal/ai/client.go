@@ -162,7 +162,10 @@ func (c *LiberationAIClient) sendAnthropicRequest(ctx context.Context, request *
 	}
 
 	// Send HTTP request
-	jsonData, _ := json.Marshal(anthropicReq)
+	jsonData, err := json.Marshal(anthropicReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
 	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.anthropic.com/v1/messages", bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, err
@@ -241,7 +244,10 @@ func (c *LiberationAIClient) sendOpenAIRequest(ctx context.Context, request *typ
 	}
 
 	// Send HTTP request
-	jsonData, _ := json.Marshal(openaiReq)
+	jsonData, err := json.Marshal(openaiReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
 	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.openai.com/v1/chat/completions", bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, err
@@ -321,7 +327,10 @@ func (c *LiberationAIClient) sendGoogleRequest(ctx context.Context, request *typ
 	}
 
 	// Send HTTP request
-	jsonData, _ := json.Marshal(googleReq)
+	jsonData, err := json.Marshal(googleReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
 	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s", config.Model, apiKey)
 
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonData))

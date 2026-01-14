@@ -281,7 +281,10 @@ func (o *OllamaProvider) PullModel(ctx context.Context, modelName string) error 
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
-		body, _ := io.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return fmt.Errorf("model pull failed (status %d, failed to read response: %v)", resp.StatusCode, err)
+		}
 		return fmt.Errorf("model pull failed (status %d): %s", resp.StatusCode, string(body))
 	}
 
