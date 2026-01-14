@@ -99,7 +99,7 @@ func (o *OllamaProvider) SendRequest(ctx context.Context, request *types.AIReque
 	if err != nil {
 		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Read response
 	body, err := io.ReadAll(resp.Body)
@@ -149,7 +149,7 @@ func (o *OllamaProvider) IsHealthy(ctx context.Context) bool {
 		o.logger.Warnf("Ollama health check failed: %v", err)
 		return false
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		o.logger.Warnf("Ollama health check returned status %d", resp.StatusCode)
@@ -278,7 +278,7 @@ func (o *OllamaProvider) PullModel(ctx context.Context, modelName string) error 
 	if err != nil {
 		return fmt.Errorf("failed to send pull request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		body, _ := io.ReadAll(resp.Body)

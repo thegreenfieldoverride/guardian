@@ -176,7 +176,7 @@ func (c *LiberationAIClient) sendAnthropicRequest(ctx context.Context, request *
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -254,7 +254,7 @@ func (c *LiberationAIClient) sendOpenAIRequest(ctx context.Context, request *typ
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -335,7 +335,7 @@ func (c *LiberationAIClient) sendGoogleRequest(ctx context.Context, request *typ
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {

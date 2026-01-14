@@ -300,9 +300,7 @@ func (r *Receiver) generateFingerprint(event *types.LiberationGuardianEvent) str
 // ValidateHMAC validates HMAC signature
 func ValidateHMAC(payload []byte, signature, secret string) bool {
 	// Remove prefix if present (e.g., "sha256=")
-	if strings.HasPrefix(signature, "sha256=") {
-		signature = signature[7:]
-	}
+	signature = strings.TrimPrefix(signature, "sha256=")
 
 	expectedSig, err := hex.DecodeString(signature)
 	if err != nil {
