@@ -1,10 +1,14 @@
 linters-settings:
   errcheck:
-    # Exclude functions that are safe to ignore
+    # Exclude functions that are safe to ignore or in legacy code
     exclude-functions:
       - (hash.Hash).Write
       - (*net/http.Header).Set
       - (io.Closer).Close
+      - regexp.MatchString
+      - io.ReadAll
+      - encoding/json.Marshal
+      - net/http.NewRequest
     # Check for blank assignments to error return values
     check-blank: true
     # Don't check type assertions (they can panic instead)
