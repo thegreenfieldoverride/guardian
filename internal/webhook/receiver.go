@@ -308,7 +308,7 @@ func ValidateHMAC(payload []byte, signature, secret string) bool {
 	}
 
 	mac := hmac.New(sha256.New, []byte(secret))
-	mac.Write(payload)
+	_, _ = mac.Write(payload) // hash.Hash.Write never returns an error
 	actualSig := mac.Sum(nil)
 
 	return hmac.Equal(expectedSig, actualSig)
