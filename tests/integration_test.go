@@ -81,7 +81,10 @@ func TestFullSystem(t *testing.T) {
 	})
 
 	t.Run("Health check works", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", "/health", nil)
+		req, err := http.NewRequest("GET", "/health", nil)
+		if err != nil {
+			t.Fatalf("Failed to create request: %v", err)
+		}
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
 
@@ -91,7 +94,10 @@ func TestFullSystem(t *testing.T) {
 	})
 
 	t.Run("Ready check works", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", "/ready", nil)
+		req, err := http.NewRequest("GET", "/ready", nil)
+		if err != nil {
+			t.Fatalf("Failed to create request: %v", err)
+		}
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
 
@@ -101,7 +107,10 @@ func TestFullSystem(t *testing.T) {
 	})
 
 	t.Run("Status endpoint works", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", "/api/v1/status", nil)
+		req, err := http.NewRequest("GET", "/api/v1/status", nil)
+		if err != nil {
+			t.Fatalf("Failed to create request: %v", err)
+		}
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
 
@@ -151,7 +160,10 @@ func TestFullSystem(t *testing.T) {
 		}
 
 		for _, test := range tests {
-			req, _ := http.NewRequest("POST", test.endpoint, bytes.NewBuffer([]byte(test.payload)))
+			req, err := http.NewRequest("POST", test.endpoint, bytes.NewBuffer([]byte(test.payload)))
+		if err != nil {
+			t.Fatalf("Failed to create request: %v", err)
+		}
 			for k, v := range test.headers {
 				req.Header.Set(k, v)
 			}
@@ -179,7 +191,10 @@ func TestFullSystem(t *testing.T) {
 			}
 		}`
 
-		req, _ := http.NewRequest("POST", "/webhook/", bytes.NewBuffer([]byte(sentryPayload)))
+		req, err := http.NewRequest("POST", "/webhook/", bytes.NewBuffer([]byte(sentryPayload)))
+		if err != nil {
+			t.Fatalf("Failed to create request: %v", err)
+		}
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("User-Agent", "Sentry/1.0")
 
