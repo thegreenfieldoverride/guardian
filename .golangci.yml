@@ -1,3 +1,5 @@
+version: 2
+
 linters-settings:
   errcheck:
     # Check for blank assignments to error return values
@@ -12,7 +14,6 @@ linters:
     - govet
     - ineffassign
     - staticcheck
-    - typecheck
     - unused
 
 run:

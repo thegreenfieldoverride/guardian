@@ -75,7 +75,9 @@ func (wm *WorkspaceManager) CreateWorkspace(ctx context.Context, execCtx *Execut
 
 		repo, err := wm.cloneRepository(ctx, tmpDir)
 		if err != nil {
-			workspace.CleanupFn()
+			if cleanupErr := workspace.CleanupFn(); cleanupErr != nil {
+				wm.logger.Warnf("Failed to cleanup workspace after clone failure: %v", cleanupErr)
+			}
 			return nil, fmt.Errorf("git clone failed: %w", err)
 		}
 
