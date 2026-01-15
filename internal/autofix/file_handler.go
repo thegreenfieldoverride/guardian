@@ -78,7 +78,7 @@ func (h *FileHandler) Rollback(ctx context.Context, step types.FixStep, execCtx 
 				return fmt.Errorf("invalid rollback data type")
 			}
 
-			return os.WriteFile(filePath, []byte(originalContent), 0644)
+			return os.WriteFile(filePath, []byte(originalContent), 0600)
 		}
 	}
 
@@ -92,6 +92,7 @@ func (h *FileHandler) updateFile(ctx context.Context, step types.FixStep, execCt
 	h.logger.Debugf("Updating file: %s", filePath)
 
 	// Read original content (for rollback)
+	// #nosec G304 - File path is validated against safety rules in handler.Validate()
 	originalContent, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file: %w", err)
@@ -126,7 +127,7 @@ func (h *FileHandler) updateFile(ctx context.Context, step types.FixStep, execCt
 	}
 
 	// Write updated content
-	if err := os.WriteFile(filePath, []byte(newContent), 0644); err != nil {
+	if err := os.WriteFile(filePath, []byte(newContent), 0600); err != nil {
 		return nil, fmt.Errorf("failed to write file: %w", err)
 	}
 
@@ -162,12 +163,12 @@ func (h *FileHandler) createFile(ctx context.Context, step types.FixStep, execCt
 
 	// Ensure parent directory exists
 	parentDir := filepath.Dir(filePath)
-	if err := os.MkdirAll(parentDir, 0755); err != nil {
+	if err := os.MkdirAll(parentDir, 0750); err != nil {
 		return nil, fmt.Errorf("failed to create parent directory: %w", err)
 	}
 
 	// Write file
-	if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(filePath, []byte(content), 0600); err != nil {
 		return nil, fmt.Errorf("failed to create file: %w", err)
 	}
 
@@ -184,6 +185,7 @@ func (h *FileHandler) deleteFile(ctx context.Context, step types.FixStep, execCt
 	h.logger.Debugf("Deleting file: %s", filePath)
 
 	// Read original content (for rollback)
+	// #nosec G304 - File path is validated against safety rules in handler.Validate()
 	originalContent, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file: %w", err)

@@ -311,6 +311,7 @@ func (ca *CodebaseAnalyzer) analyzeFile(path string) (*FileAnalysis, error) {
 	}
 
 	// Read file content
+	// #nosec G304 - File path is validated against allowed/blocked patterns before reading
 	content, err := os.ReadFile(fullPath)
 	if err != nil {
 		return nil, err

@@ -179,6 +179,7 @@ type FeedbackLoopConfig struct {
 
 // LoadConfig loads configuration from a YAML file
 func LoadConfig(configPath string) (*Config, error) {
+	// #nosec G304 - Config path is provided by trusted user via command-line flag
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read config file: %w", err)

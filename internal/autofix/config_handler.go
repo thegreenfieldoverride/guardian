@@ -73,6 +73,7 @@ func (h *ConfigHandler) Execute(ctx context.Context, step types.FixStep, execCtx
 	}
 
 	// Read original content
+	// #nosec G304 - File path is validated against safety rules in handler.Validate()
 	content, err := os.ReadFile(fullPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read config file: %w", err)
@@ -103,7 +104,7 @@ func (h *ConfigHandler) Execute(ctx context.Context, step types.FixStep, execCtx
 	}
 
 	// Write updated config
-	if err := os.WriteFile(fullPath, updatedContent, 0644); err != nil {
+	if err := os.WriteFile(fullPath, updatedContent, 0600); err != nil {
 		return nil, fmt.Errorf("failed to write config file: %w", err)
 	}
 
@@ -126,7 +127,7 @@ func (h *ConfigHandler) Rollback(ctx context.Context, step types.FixStep, execCt
 				return fmt.Errorf("invalid rollback data type")
 			}
 
-			return os.WriteFile(fullPath, []byte(originalContent), 0644)
+			return os.WriteFile(fullPath, []byte(originalContent), 0600)
 		}
 	}
 

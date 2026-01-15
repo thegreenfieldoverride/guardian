@@ -73,6 +73,7 @@ func (h *CommandHandler) Execute(ctx context.Context, step types.FixStep, execCt
 	defer cancel()
 
 	// Build command
+	// #nosec G204 - Command is validated against allowlist and dangerous patterns in handler.Validate()
 	cmd := exec.CommandContext(execContext, "sh", "-c", fullCommand)
 
 	// Set working directory
@@ -122,6 +123,7 @@ func (h *CommandHandler) Rollback(ctx context.Context, step types.FixStep, execC
 	if rollbackCommand != "" {
 		h.logger.Infof("Executing rollback command: %s", rollbackCommand)
 
+		// #nosec G204 - Rollback command is validated during step execution
 		cmd := exec.CommandContext(ctx, "sh", "-c", rollbackCommand)
 		if execCtx.WorkingDirectory != "" {
 			cmd.Dir = execCtx.WorkingDirectory

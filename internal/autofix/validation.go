@@ -250,6 +250,7 @@ func (v *SafetyValidator) runTestSuite(ctx context.Context, execCtx *ExecutionCo
 		return nil
 	}
 
+	// #nosec G204 - Command execution is validated against allowlist in validateCommand()
 	cmd := exec.CommandContext(ctx, "sh", "-c", testCommand)
 	cmd.Dir = execCtx.WorkingDirectory
 

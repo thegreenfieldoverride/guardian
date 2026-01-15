@@ -76,8 +76,9 @@ func main() {
 
 	// Start HTTP server
 	server := &http.Server{
-		Addr:    fmt.Sprintf(":%d", cfg.Core.Port),
-		Handler: router,
+		Addr:              fmt.Sprintf(":%d", cfg.Core.Port),
+		Handler:           router,
+		ReadHeaderTimeout: 10 * time.Second, // Prevent Slowloris attacks
 	}
 
 	go func() {
