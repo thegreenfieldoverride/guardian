@@ -107,18 +107,8 @@ func TestWebhookReceiver(t *testing.T) {
 		}
 	})
 
-	t.Run("Health check works", func(t *testing.T) {
-		req, err := http.NewRequest("GET", "/health", nil)
-		if err != nil {
-			t.Fatalf("Failed to create request: %v", err)
-		}
-		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
-
-		if w.Code != 200 {
-			t.Errorf("Health check failed with status %d", w.Code)
-		}
-	})
+	// Note: Health check endpoint is tested in TestFullSystem (integration_test.go)
+	// The WebhookReceiver only sets up webhook routes, not health endpoints
 }
 
 func TestWebhookProcessors(t *testing.T) {
