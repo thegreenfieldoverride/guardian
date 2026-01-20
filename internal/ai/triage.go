@@ -100,11 +100,19 @@ func (te *TriageEngine) shouldEscalateImmediately(event *types.LiberationGuardia
 
 	// Check escalation patterns
 	for _, pattern := range te.config.DecisionRules.Escalate.Patterns {
-		matched, _ := regexp.MatchString(pattern, event.Title)
+		matched, err := regexp.MatchString(pattern, event.Title)
+		if err != nil {
+			te.logger.Warnf("Invalid escalation pattern '%s': %v", pattern, err)
+			continue
+		}
 		if matched {
 			return true
 		}
-		matched, _ = regexp.MatchString(pattern, event.Description)
+		matched, err = regexp.MatchString(pattern, event.Description)
+		if err != nil {
+			te.logger.Warnf("Invalid escalation pattern '%s': %v", pattern, err)
+			continue
+		}
 		if matched {
 			return true
 		}
@@ -116,11 +124,19 @@ func (te *TriageEngine) shouldEscalateImmediately(event *types.LiberationGuardia
 // shouldAutoAcknowledge checks if event can be auto-acknowledged
 func (te *TriageEngine) shouldAutoAcknowledge(event *types.LiberationGuardianEvent) bool {
 	for _, pattern := range te.config.DecisionRules.AutoAcknowledge.Patterns {
-		matched, _ := regexp.MatchString(pattern, event.Title)
+		matched, err := regexp.MatchString(pattern, event.Title)
+		if err != nil {
+			te.logger.Warnf("Invalid auto-acknowledge pattern '%s': %v", pattern, err)
+			continue
+		}
 		if matched {
 			return true
 		}
-		matched, _ = regexp.MatchString(pattern, event.Description)
+		matched, err = regexp.MatchString(pattern, event.Description)
+		if err != nil {
+			te.logger.Warnf("Invalid auto-acknowledge pattern '%s': %v", pattern, err)
+			continue
+		}
 		if matched {
 			return true
 		}

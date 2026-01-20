@@ -173,11 +173,8 @@ func (ga *GitHubAutomation) determineEcosystem(repoName, packageName string) typ
 	if strings.Contains(packageName, "/") && !strings.Contains(packageName, "@") {
 		return types.EcosystemGo
 	}
-	if strings.HasPrefix(packageName, "@") {
-		return types.EcosystemNPM
-	}
 
-	// Default to npm (most common)
+	// Default to npm (most common, includes scoped packages like @foo/bar)
 	return types.EcosystemNPM
 }
 
@@ -246,7 +243,9 @@ func (ga *GitHubAutomation) executeAction(ctx context.Context, webhook *types.Gi
 			result.Reasoning += fmt.Sprintf(" (Merge failed: %v)", err)
 			// Fall back to approval
 			result.Action = types.ActionApprove
-			ga.approvePR(ctx, webhook)
+			if approveErr := ga.approvePR(ctx, webhook); approveErr != nil {
+				ga.logger.Errorf("Failed to approve PR after merge failure: %v", approveErr)
+			}
 		}
 
 	case types.ActionComment:
@@ -288,22 +287,163 @@ func (ga *GitHubAutomation) approvePR(ctx context.Context, webhook *types.GitHub
 	return ga.makeGitHubAPICall(ctx, "POST", url, reviewBody)
 }
 
-// mergePR merges the GitHub PR
+// mergePR merges the GitHub PR ONLY if all CI checks have passed
 func (ga *GitHubAutomation) mergePR(ctx context.Context, webhook *types.GitHubDependabotWebhook) error {
 	if ga.githubToken == "" {
 		return fmt.Errorf("GitHub token not configured")
 	}
+
+	// CRITICAL: Check CI status before merging
+	ciStatus, err := ga.checkCIStatus(ctx, webhook)
+	if err != nil {
+		return fmt.Errorf("failed to check CI status: %w", err)
+	}
+
+	if ciStatus != "success" {
+		ga.logger.Warnf("PR #%d CI status is '%s', not merging. Will approve and wait for CI.",
+			webhook.PullRequest.Number, ciStatus)
+
+		// Add comment explaining why we're not merging yet
+		comment := fmt.Sprintf("🤖 **Liberation Guardian**: This PR has been approved by AI analysis, "+
+			"but CI checks are not yet complete (status: `%s`).\n\n"+
+			"✅ Once all CI checks pass, this PR can be safely merged.\n\n"+
+			"🔒 **Safety**: Auto-merge only happens when all tests pass.", ciStatus)
+		if commentErr := ga.commentOnPR(ctx, webhook, comment); commentErr != nil {
+			ga.logger.Errorf("Failed to comment on PR about CI status: %v", commentErr)
+		}
+
+		return fmt.Errorf("CI checks not passing (status: %s), cannot auto-merge", ciStatus)
+	}
+
+	// All CI checks passed, safe to merge
+	ga.logger.Infof("PR #%d CI checks passed, proceeding with merge", webhook.PullRequest.Number)
 
 	url := fmt.Sprintf("https://api.github.com/repos/%s/pulls/%d/merge",
 		webhook.Repository.FullName, webhook.PullRequest.Number)
 
 	mergeBody := map[string]interface{}{
 		"commit_title":   fmt.Sprintf("Auto-merge: %s", webhook.PullRequest.Title),
-		"commit_message": "Automatically merged by Liberation Guardian after AI security analysis",
+		"commit_message": "Automatically merged by Liberation Guardian after AI security analysis and CI checks passed",
 		"merge_method":   "squash",
 	}
 
 	return ga.makeGitHubAPICall(ctx, "PUT", url, mergeBody)
+}
+
+// checkCIStatus checks the CI/CD status of a pull request
+func (ga *GitHubAutomation) checkCIStatus(ctx context.Context, webhook *types.GitHubDependabotWebhook) (string, error) {
+	// Get the combined status for the PR's HEAD commit
+	url := fmt.Sprintf("https://api.github.com/repos/%s/commits/%s/status",
+		webhook.Repository.FullName, webhook.PullRequest.Head.SHA)
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Authorization", "token "+ga.githubToken)
+	req.Header.Set("Accept", "application/vnd.github.v3+json")
+	req.Header.Set("User-Agent", "liberation-guardian/1.0")
+
+	resp, err := ga.httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to make request: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return "", fmt.Errorf("GitHub API returned status %d (failed to read response body: %v)", resp.StatusCode, err)
+		}
+		return "", fmt.Errorf("GitHub API returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var statusResponse struct {
+		State      string `json:"state"` // "success", "pending", "failure", "error"
+		TotalCount int    `json:"total_count"`
+		Statuses   []struct {
+			State   string `json:"state"`
+			Context string `json:"context"`
+		} `json:"statuses"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&statusResponse); err != nil {
+		return "", fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	// Also check for GitHub Actions check runs (newer API)
+	checkRunsStatus, err := ga.checkGitHubActionsStatus(ctx, webhook)
+	if err != nil {
+		ga.logger.Warnf("Failed to check GitHub Actions status: %v", err)
+		// Continue with commit status if check runs fail
+	} else if checkRunsStatus != "success" && checkRunsStatus != "" {
+		ga.logger.Infof("GitHub Actions status: %s", checkRunsStatus)
+		return checkRunsStatus, nil
+	}
+
+	ga.logger.Infof("CI status for PR #%d: %s (total checks: %d)",
+		webhook.PullRequest.Number, statusResponse.State, statusResponse.TotalCount)
+
+	return statusResponse.State, nil
+}
+
+// checkGitHubActionsStatus checks GitHub Actions check runs (newer CI API)
+func (ga *GitHubAutomation) checkGitHubActionsStatus(ctx context.Context, webhook *types.GitHubDependabotWebhook) (string, error) {
+	url := fmt.Sprintf("https://api.github.com/repos/%s/commits/%s/check-runs",
+		webhook.Repository.FullName, webhook.PullRequest.Head.SHA)
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return "", err
+	}
+
+	req.Header.Set("Authorization", "token "+ga.githubToken)
+	req.Header.Set("Accept", "application/vnd.github.v3+json")
+	req.Header.Set("User-Agent", "liberation-guardian/1.0")
+
+	resp, err := ga.httpClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("status code: %d", resp.StatusCode)
+	}
+
+	var checkRunsResponse struct {
+		TotalCount int `json:"total_count"`
+		CheckRuns  []struct {
+			Name       string `json:"name"`
+			Status     string `json:"status"`     // "queued", "in_progress", "completed"
+			Conclusion string `json:"conclusion"` // "success", "failure", "neutral", "cancelled", "skipped", "timed_out", "action_required"
+		} `json:"check_runs"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&checkRunsResponse); err != nil {
+		return "", err
+	}
+
+	if checkRunsResponse.TotalCount == 0 {
+		// No check runs, might be using commit statuses instead
+		return "", nil
+	}
+
+	// Check if any check runs are still in progress
+	for _, checkRun := range checkRunsResponse.CheckRuns {
+		if checkRun.Status != "completed" {
+			ga.logger.Infof("Check run '%s' is %s", checkRun.Name, checkRun.Status)
+			return "pending", nil
+		}
+		if checkRun.Conclusion != "success" && checkRun.Conclusion != "skipped" && checkRun.Conclusion != "neutral" {
+			ga.logger.Warnf("Check run '%s' failed with conclusion: %s", checkRun.Name, checkRun.Conclusion)
+			return "failure", nil
+		}
+	}
+
+	// All check runs completed successfully
+	return "success", nil
 }
 
 // commentOnPR adds a comment to the GitHub PR
@@ -349,10 +489,13 @@ func (ga *GitHubAutomation) makeGitHubAPICall(ctx context.Context, method, url s
 	if err != nil {
 		return fmt.Errorf("failed to make API call: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		respBody, _ := io.ReadAll(resp.Body)
+		respBody, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return fmt.Errorf("GitHub API error (status %d, failed to read response: %v)", resp.StatusCode, err)
+		}
 		return fmt.Errorf("GitHub API error (status %d): %s", resp.StatusCode, string(respBody))
 	}
 

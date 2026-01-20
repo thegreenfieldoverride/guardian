@@ -48,12 +48,25 @@ func (da *DependencyAnalyzer) AnalyzeDependencyUpdate(ctx context.Context, updat
 	// Step 2: Community metrics analysis
 	communityMetrics := da.analyzeCommunityMetrics(ctx, update)
 
-	// Step 3: AI-powered analysis
-	aiAnalysis, err := da.performAIAnalysis(ctx, update, riskFactors, communityMetrics)
-	if err != nil {
-		da.logger.Errorf("AI analysis failed for %s: %v", update.PackageName, err)
-		// Fall back to rule-based analysis
-		aiAnalysis = da.fallbackAnalysis(update, riskFactors)
+	// Step 2.5: Check if fast-path can be used (skip expensive AI analysis)
+	var aiAnalysis *aiAnalysisResult
+	var err error
+	fastPathEligible := false
+	fastPathUsed := false
+
+	if da.shouldUseFastPath(update) {
+		fastPathEligible = true
+		da.logger.Infof("Using fast-path for %s (skipping AI analysis)", update.PackageName)
+		aiAnalysis = da.fastPathAnalysis(update, riskFactors)
+		fastPathUsed = true
+	} else {
+		// Step 3: AI-powered analysis (expensive)
+		aiAnalysis, err = da.performAIAnalysis(ctx, update, riskFactors, communityMetrics)
+		if err != nil {
+			da.logger.Errorf("AI analysis failed for %s: %v", update.PackageName, err)
+			// Fall back to rule-based analysis
+			aiAnalysis = da.fallbackAnalysis(update, riskFactors)
+		}
 	}
 
 	// Step 4: Apply trust level and custom rules
@@ -76,10 +89,12 @@ func (da *DependencyAnalyzer) AnalyzeDependencyUpdate(ctx context.Context, updat
 		ProcessingTime:    time.Since(startTime).Milliseconds(),
 		AIProvider:        aiAnalysis.AIProvider,
 		Cost:              aiAnalysis.Cost,
+		FastPathEligible:  fastPathEligible,
+		FastPathUsed:      fastPathUsed,
 	}
 
-	da.logger.Infof("Analysis complete for %s: %s (confidence: %.2f)",
-		update.PackageName, recommendation, analysis.Confidence)
+	da.logger.Infof("Analysis complete for %s: %s (confidence: %.2f, fast-path: %v)",
+		update.PackageName, recommendation, analysis.Confidence, fastPathUsed)
 
 	return analysis, nil
 }
@@ -545,7 +560,21 @@ func loadDependencyConfig(cfg *config.Config) *types.DependencyConfig {
 			types.EcosystemGo,
 			types.EcosystemRust,
 		},
-		CustomRules: []types.DependencyRule{},
+		CustomRules:   []types.DependencyRule{},
+		SupportedBots: []string{"dependabot", "snyk"},
+		SimplePRFastPath: types.SimplePRFastPath{
+			Enabled:             true,
+			PatchOnly:           true,
+			PopularPackagesOnly: true,
+			MinWeeklyDownloads:  100000,
+			MaxDiffLines:        50,
+			BlockSecurityFixes:  true,
+		},
+		Snyk: types.SnykConfig{
+			Enabled:            true,
+			AutoApprovePatches: true,
+			TrustSnykPriority:  true,
+		},
 	}
 }
 
@@ -599,4 +628,61 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// shouldUseFastPath determines if fast-path should be used for this update
+func (da *DependencyAnalyzer) shouldUseFastPath(update *types.DependencyUpdate) bool {
+	// Fast-path must be enabled and respect trust level
+	if !da.depConfig.SimplePRFastPath.Enabled {
+		return false
+	}
+
+	// Trust level 0 (Paranoid) never uses fast-path
+	if da.depConfig.TrustLevel == types.TrustParanoid {
+		return false
+	}
+
+	// Create fast-path config from dependency config
+	fastPathConfig := &SimplePRFastPathConfig{
+		Enabled:             da.depConfig.SimplePRFastPath.Enabled,
+		PatchOnly:           da.depConfig.SimplePRFastPath.PatchOnly,
+		PopularPackagesOnly: da.depConfig.SimplePRFastPath.PopularPackagesOnly,
+		MinWeeklyDownloads:  da.depConfig.SimplePRFastPath.MinWeeklyDownloads,
+		MaxDiffLines:        da.depConfig.SimplePRFastPath.MaxDiffLines,
+		BlockSecurityFixes:  da.depConfig.SimplePRFastPath.BlockSecurityFixes,
+	}
+
+	// Use SimplePRDetector to determine eligibility
+	detector := NewSimplePRDetector(da.logger, fastPathConfig)
+	return detector.IsSimplePR(update)
+}
+
+// fastPathAnalysis provides a quick rule-based analysis for simple PRs
+func (da *DependencyAnalyzer) fastPathAnalysis(update *types.DependencyUpdate, riskFactors []string) *aiAnalysisResult {
+	da.logger.Debugf("Performing fast-path analysis for %s", update.PackageName)
+
+	// Fast-path: simple patches of popular packages are low risk
+	confidence := 0.95 // High confidence for fast-path eligible updates
+	breakingChanges := false
+	securityImpact := types.DependencySeverityLow
+
+	// If there are CVEs, still mark as security but trust Snyk/Dependabot assessment
+	if len(update.CVEFixed) > 0 {
+		securityImpact = types.DependencySeverityModerate
+	}
+
+	reasoning := fmt.Sprintf("Fast-path: %s patch update of popular package %s. "+
+		"Skipped expensive AI analysis. Update type: %s, Risk factors: %d",
+		update.Source, update.PackageName, update.UpdateType, len(riskFactors))
+
+	return &aiAnalysisResult{
+		SecurityImpact:      securityImpact,
+		BreakingChanges:     breakingChanges,
+		Confidence:          confidence,
+		Reasoning:           reasoning,
+		TestCompatibility:   0.95, // High test compatibility expected
+		MigrationComplexity: "trivial",
+		AIProvider:          "fast-path",
+		Cost:                0.0, // No AI cost
+	}
 }

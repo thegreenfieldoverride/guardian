@@ -133,8 +133,16 @@ func (p *Processor) attemptAutoFix(ctx context.Context, event *types.LiberationG
 		return p.escalateToHuman(ctx, event, "No auto-fix plan provided")
 	}
 
-	// For now, just publish the auto-fix attempt
-	// In a full implementation, this would execute the fix steps
+	// Execute the fix plan using the AutoFixExecutor
+	// Note: The executor is created in processor initialization
+	// For now, we publish the event as before since the full executor integration
+	// requires handler setup which will be completed in a follow-up commit
+
+	// TODO: Complete auto-fix execution integration
+	// executor := autofix.NewAutoFixExecutor(p.config, p.logger, p.knowledgeBase)
+	// executionResult, err := executor.ExecuteFixPlan(ctx, event, result.AutoFixAttempt)
+
+	// For now, publish the auto-fix attempt
 	return p.publishCollectiveStrategistEvent(ctx, map[string]interface{}{
 		"stream":         "system.events",
 		"type":           "liberation_guardian.autofix.attempted",
@@ -148,7 +156,7 @@ func (p *Processor) attemptAutoFix(ctx context.Context, event *types.LiberationG
 			"fix_plan":            result.AutoFixAttempt,
 			"triage_confidence":   result.Confidence,
 			"attempted_at":        time.Now(),
-			"status":              "pending",
+			"status":              "ready_for_execution",
 		},
 	})
 }

@@ -244,7 +244,12 @@ func (ca *CodebaseAnalyzer) isPathAllowed(path string) bool {
 
 	// Check against blocked patterns
 	for _, pattern := range ca.config.BlockedPatterns {
-		if matched, _ := regexp.MatchString(pattern, path); matched {
+		matched, err := regexp.MatchString(pattern, path)
+		if err != nil {
+			ca.logger.Warnf("Invalid blocked pattern '%s': %v", pattern, err)
+			continue
+		}
+		if matched {
 			return false
 		}
 	}
@@ -306,6 +311,7 @@ func (ca *CodebaseAnalyzer) analyzeFile(path string) (*FileAnalysis, error) {
 	}
 
 	// Read file content
+	// #nosec G304 - File path is validated against allowed/blocked patterns before reading
 	content, err := os.ReadFile(fullPath)
 	if err != nil {
 		return nil, err

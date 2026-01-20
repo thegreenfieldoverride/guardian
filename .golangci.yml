@@ -1,0 +1,28 @@
+linters-settings:
+  errcheck:
+    # Check for blank assignments to error return values
+    check-blank: true
+    # Don't check type assertions (they can panic instead)
+    check-type-assertions: false
+
+linters:
+  enable:
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - typecheck
+    - unused
+
+run:
+  timeout: 5m
+
+issues:
+  # Maximum issues count per one linter
+  max-issues-per-linter: 0
+  # Maximum count of issues with the same text
+  max-same-issues: 0
+  exclude-dirs:
+    - vendor
+    - node_modules

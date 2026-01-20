@@ -36,7 +36,10 @@ func TestWebhookReceiver(t *testing.T) {
 	receiver.SetupRoutes(router)
 
 	t.Run("Universal webhook endpoint exists", func(t *testing.T) {
-		req, _ := http.NewRequest("POST", "/webhook/", bytes.NewBuffer([]byte(`{"test": "data"}`)))
+		req, err := http.NewRequest("POST", "/webhook/", bytes.NewBuffer([]byte(`{"test": "data"}`)))
+		if err != nil {
+			t.Fatalf("Failed to create request: %v", err)
+		}
 		req.Header.Set("Content-Type", "application/json")
 
 		w := httptest.NewRecorder()
@@ -63,7 +66,10 @@ func TestWebhookReceiver(t *testing.T) {
 			}
 		}`
 
-		req, _ := http.NewRequest("POST", "/webhook/sentry", bytes.NewBuffer([]byte(sentryPayload)))
+		req, err := http.NewRequest("POST", "/webhook/sentry", bytes.NewBuffer([]byte(sentryPayload)))
+		if err != nil {
+			t.Fatalf("Failed to create request: %v", err)
+		}
 		req.Header.Set("Content-Type", "application/json")
 
 		w := httptest.NewRecorder()
@@ -85,7 +91,10 @@ func TestWebhookReceiver(t *testing.T) {
 			"repository": {"name": "test-repo"}
 		}`
 
-		req, _ := http.NewRequest("POST", "/webhook/github", bytes.NewBuffer([]byte(githubPayload)))
+		req, err := http.NewRequest("POST", "/webhook/github", bytes.NewBuffer([]byte(githubPayload)))
+		if err != nil {
+			t.Fatalf("Failed to create request: %v", err)
+		}
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-GitHub-Event", "workflow_run")
 
@@ -98,15 +107,8 @@ func TestWebhookReceiver(t *testing.T) {
 		}
 	})
 
-	t.Run("Health check works", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", "/health", nil)
-		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
-
-		if w.Code != 200 {
-			t.Errorf("Health check failed with status %d", w.Code)
-		}
-	})
+	// Note: Health check endpoint is tested in TestFullSystem (integration_test.go)
+	// The WebhookReceiver only sets up webhook routes, not health endpoints
 }
 
 func TestWebhookProcessors(t *testing.T) {
