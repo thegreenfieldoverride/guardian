@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
 
@@ -261,9 +262,16 @@ func (p *Processor) publishCollectiveStrategistEvent(ctx context.Context, eventD
 	return nil
 }
 
-// generateEventID generates a unique event ID
+// generateEventID generates a unique event ID.
+//
+// This was fmt.Sprintf("lg_%d", time.Now().UnixNano()) with a comment saying a
+// UUID would be used in production. It collided on the third consecutive call:
+// UnixNano is only as fine-grained as the host clock, and on a machine with
+// microsecond resolution it returns values rounded to the nearest 1000ns, so
+// events created in the same tick shared an ID. These IDs are published as
+// correlation keys, so a collision merges two unrelated incidents.
+//
+// uuid is already a dependency and is how webhook.Receiver mints event IDs.
 func (p *Processor) generateEventID() string {
-	// Simple timestamp-based ID for now
-	// In production, would use ULID or UUID
-	return fmt.Sprintf("lg_%d", time.Now().UnixNano())
+	return "lg_" + uuid.New().String()
 }
